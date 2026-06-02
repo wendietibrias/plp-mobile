@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:uts_flutter/views/login.dart';
-import 'package:uts_flutter/views/mahasiswa/daftar_kelas.dart';
-import 'package:uts_flutter/views/mahasiswa/dashboard.dart';
+import 'package:uts_flutter/features/auth/screens/login.dart';
+import 'package:uts_flutter/features/mahasiswa/kelas/screens/daftar_kelas.dart';
+import 'package:uts_flutter/features/mahasiswa/dashaboard/screens/dashboard.dart';
 
 void main() {
   runApp(const MyApp());

@@ -158,7 +158,7 @@ class _DetailKelasScreenState extends State<DetailKelasScreen> {
 
           final item = pertemuanList[index];
           return Padding(
-            padding: const EdgeInsets.bottom(14.0),
+            padding: const EdgeInsets.only(bottom: 14.0),
             child: MeetingCard(
               status: item['status'],
               date: item['date'],
