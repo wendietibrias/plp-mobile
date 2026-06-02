@@ -17,19 +17,20 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Poppins', // Pastikan font ini terdaftar di pubspec.yaml
         useMaterial3: true,
       ),
-      home: const StudentDashboard(),
+      home: const MahasiswaDashboardScreen(),
     );
   }
 }
 
-class StudentDashboard extends StatefulWidget {
-  const StudentDashboard({super.key});
+class MahasiswaDashboardScreen extends StatefulWidget {
+  const MahasiswaDashboardScreen({super.key});
 
   @override
-  State<StudentDashboard> createState() => _StudentDashboardState();
+  State<MahasiswaDashboardScreen> createState() =>
+      _MahasiswaDashboardScreenState();
 }
 
-class _StudentDashboardState extends State<StudentDashboard> {
+class _MahasiswaDashboardScreenState extends State<MahasiswaDashboardScreen> {
   int _currentIndex = 0;
 
   @override
