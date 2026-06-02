@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uts_flutter/views/login.dart';
+import 'package:uts_flutter/views/mahasiswa/daftar_kelas.dart';
+import 'package:uts_flutter/views/mahasiswa/dashboard.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +16,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Dokterian',
       theme: ThemeData(useMaterial3: true),
-      home: const LoginScreen(),
+      // home: const LoginScreen(),
+      home: const DetailKelasScreen(),
     );
   }
 }
