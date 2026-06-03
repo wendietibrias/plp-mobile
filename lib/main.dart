@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:uts_flutter/features/mahasiswa/dashboard/screens/mahasiswa_dashboard_screen.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/mahasiswa/kelas/screens/daftar_kelas_screen.dart';
 import 'features/mahasiswa/kelas/screens/detail_kelas_screen.dart';
+import 'features/mahasiswa/absensi/screens/scan_qr_screen.dart';
+import 'features/mahasiswa/absensi/screens/success_attendance_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,8 +34,12 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/mahasiswa/dashboard': (context) => const MahasiswaDashboardScreen(),
+        '/mahasiswa/kelas': (context) => const DaftarKelasScreen(),
         '/mahasiswa/detail-kelas': (context) => const DetailKelasScreen(),
-        // '/dosen/dashboard': (context) => const DosenDashboardScreen(), // Jika nanti ditambahkan
+        '/mahasiswa/scan-qr': (context) => const ScanQrScreen(),
+        '/mahasiswa/sukses-presensi':
+            (context) => const SuccessAttendanceScreen(),
+        // '/dosen/dashboard': (context) => const DosenDashboardScreen(),
       },
     );
   }

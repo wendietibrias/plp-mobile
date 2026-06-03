@@ -70,6 +70,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Tampilkan hasil (Bisa diganti dengan logika navigasi ke halaman Home)
       if (mounted) {
+        if (role == "Mahasiswa") {
+          Navigator.pushReplacementNamed(context, '/mahasiswa/dashboard');
+        }
+
+        if (role == "Dosen") {
+          // Navigator.pushReplacementNamed(context, '/dosen/dashboard');
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Login Berhasil!\nRole: $role\nID: $idInput'),
