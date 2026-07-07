@@ -1,27 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Akademik Login UI',
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFFF7F8FA),
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2575FC)),
-        fontFamily:
-            'Roboto', // Ganti dengan font yang sesuai jika ada (misal: Poppins)
-      ),
-      home: const LoginScreen(),
-    );
-  }
-}
+import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -31,16 +11,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // 1. Tambahkan Key untuk Form dan Controller untuk input
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool isMahasiswa = true;
   bool isPasswordObscured = true;
-  bool isLoading = false; // Status untuk efek loading saat tombol ditekan
 
-  // 2. Jangan lupa dispose controller untuk mencegah memory leak
   @override
   void dispose() {
     _idController.dispose();
@@ -48,55 +25,63 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // 3. Fungsi logika utama untuk memproses login
-  void _prosesLogin() async {
-    // Validasi form sebelum memproses data
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        isLoading = true;
-      });
+  Future<void> _prosesLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
 
-      // Ambil nilai dari controller
-      String idInput = _idController.text;
-      String passwordInput = _passwordController.text;
-      String role = isMahasiswa ? "Mahasiswa" : "Dosen";
+    final auth = context.read<AuthProvider>();
+    final sukses = await auth.login(
+      username: _idController.text.trim(),
+      password: _passwordController.text,
+    );
 
-      // Simulasi proses API / Jaringan (delay 2 detik)
-      await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
 
-      setState(() {
-        isLoading = false;
-      });
-
-      // Tampilkan hasil (Bisa diganti dengan logika navigasi ke halaman Home)
-      if (mounted) {
-        if (role == "Mahasiswa") {
-          Navigator.pushReplacementNamed(context, '/mahasiswa/dashboard');
-        }
-
-        if (role == "Dosen") {
-          // Navigator.pushReplacementNamed(context, '/dosen/dashboard');
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login Berhasil!\nRole: $role\nID: $idInput'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+    if (!sukses) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.errorMessage ?? 'Login gagal. Coba lagi.'),
+          backgroundColor: const Color(0xFFD92D20),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
     }
+
+    if (!isMahasiswa) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dashboard dosen belum tersedia pada versi ini.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (auth.student == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Login berhasil, namun akun ini belum tertaut ke data mahasiswa.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+
+    Navigator.pushReplacementNamed(context, '/mahasiswa/dashboard');
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoading =
+        context.watch<AuthProvider>().status == AuthStatus.loading;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {},
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           'Akademik',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
@@ -111,11 +96,20 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 200,
               width: double.infinity,
               fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 200,
+                color: const Color(0xFFE0EAFF),
+                child: const Icon(
+                  Icons.school_rounded,
+                  size: 64,
+                  color: Color(0xFF2575FC),
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Form(
-                key: _formKey, // 4. Bungkus dengan widget Form dan masukkan Key
+                key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -141,7 +135,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Tab Toggle (Mahasiswa / Dosen)
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
@@ -150,94 +143,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => isMahasiswa = true),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      isMahasiswa
-                                          ? Colors.white
-                                          : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow:
-                                      isMahasiswa
-                                          ? [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.05,
-                                              ),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ]
-                                          : [],
-                                ),
-                                child: Text(
-                                  'Mahasiswa',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        isMahasiswa
-                                            ? const Color(0xFF2575FC)
-                                            : const Color(0xFF475467),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => isMahasiswa = false),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      !isMahasiswa
-                                          ? Colors.white
-                                          : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow:
-                                      !isMahasiswa
-                                          ? [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.05,
-                                              ),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ]
-                                          : [],
-                                ),
-                                child: Text(
-                                  'Dosen',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        !isMahasiswa
-                                            ? const Color(0xFF2575FC)
-                                            : const Color(0xFF475467),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                          _buildRoleTab(label: 'Mahasiswa', selected: true),
+                          _buildRoleTab(label: 'Dosen', selected: false),
                         ],
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Form ID / Email
                     const Text(
-                      'ID / Email',
+                      'Username / NIM',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -245,52 +159,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // 5. Ubah TextField menjadi TextFormField
                     TextFormField(
-                      controller: _idController, // Sambungkan ke controller
+                      controller: _idController,
+                      textInputAction: TextInputAction.next,
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'ID atau Email tidak boleh kosong';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Username atau NIM tidak boleh kosong';
                         }
                         return null;
                       },
-                      decoration: InputDecoration(
-                        hintText: 'Masukkan ID atau Email',
-                        hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
-                        prefixIcon: const Icon(
-                          Icons.person,
-                          color: Color(0xFF98A2B3),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE4E7EC),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF2575FC),
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.red),
-                        ),
-                        focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.red),
-                        ),
+                      decoration: _inputDecoration(
+                        hint: 'Masukkan username atau NIM',
+                        prefix: Icons.person,
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Form Password
                     const Text(
                       'Password',
                       style: TextStyle(
@@ -300,11 +184,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // 6. Ubah TextField menjadi TextFormField
                     TextFormField(
-                      controller:
-                          _passwordController, // Sambungkan ke controller
+                      controller: _passwordController,
                       obscureText: isPasswordObscured,
+                      onFieldSubmitted: (_) =>
+                          isLoading ? null : _prosesLogin(),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Password tidak boleh kosong';
@@ -314,14 +198,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                         return null;
                       },
-                      decoration: InputDecoration(
-                        hintText: '••••••••',
-                        hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
-                        prefixIcon: const Icon(
-                          Icons.lock,
-                          color: Color(0xFF98A2B3),
-                        ),
-                        suffixIcon: IconButton(
+                      decoration: _inputDecoration(
+                        hint: '••••••••',
+                        prefix: Icons.lock,
+                        suffix: IconButton(
                           icon: Icon(
                             isPasswordObscured
                                 ? Icons.visibility
@@ -334,31 +214,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             });
                           },
                         ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE4E7EC),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF2575FC),
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.red),
-                        ),
-                        focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.red),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -366,7 +221,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
-                        onTap: () {},
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Silakan hubungi admin akademik untuk reset password.',
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                         child: const Text(
                           'Lupa Password?',
                           style: TextStyle(
@@ -379,52 +243,46 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // 7. Modifikasi Tombol Masuk untuk Trigger Validasi & Loading
                     ElevatedButton(
-                      onPressed:
-                          isLoading
-                              ? null
-                              : _prosesLogin, // Disable tombol saat loading
+                      onPressed: isLoading ? null : _prosesLogin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E60E6),
-                        disabledBackgroundColor: const Color(
-                          0xFF1E60E6,
-                        ).withOpacity(0.6),
+                        disabledBackgroundColor:
+                            const Color(0xFF1E60E6).withOpacity(0.6),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 0,
                       ),
-                      child:
-                          isLoading
-                              ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                              : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  Text(
-                                    'Masuk',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(
-                                    Icons.login,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                ],
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
                               ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Text(
+                                  'Masuk',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Icon(
+                                  Icons.login,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
                     ),
                     const SizedBox(height: 32),
 
@@ -435,7 +293,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Hubungi admin akademik di kampus untuk bantuan.',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
                       icon: const Icon(
                         Icons.support_agent,
                         color: Color(0xFF344054),
@@ -464,6 +331,66 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRoleTab({required String label, required bool selected}) {
+    final isActive = selected ? isMahasiswa : !isMahasiswa;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => isMahasiswa = selected),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: isActive
+                  ? const Color(0xFF2575FC)
+                  : const Color(0xFF475467),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData prefix,
+    Widget? suffix,
+  }) {
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: color),
+        );
+
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
+      prefixIcon: Icon(prefix, color: const Color(0xFF98A2B3)),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+      enabledBorder: border(const Color(0xFFE4E7EC)),
+      focusedBorder: border(const Color(0xFF2575FC)),
+      errorBorder: border(Colors.red),
+      focusedErrorBorder: border(Colors.red),
     );
   }
 }

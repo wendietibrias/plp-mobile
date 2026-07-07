@@ -1,10 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../auth/providers/auth_provider.dart';
+import '../../absensi/providers/absensi_provider.dart';
+import '../../kelas/providers/kelas_provider.dart';
+import '../../riwayat/providers/riwayat_provider.dart';
 
 class ProfilScreen extends StatelessWidget {
   const ProfilScreen({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    final konfirmasi = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Keluar Sesi'),
+        content: const Text('Yakin ingin keluar dari akun ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD92D20),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child:
+                const Text('Keluar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (konfirmasi != true || !context.mounted) return;
+
+    // Bersihkan sesi + seluruh state milik pengguna sebelumnya.
+    await context.read<AuthProvider>().logout();
+    if (!context.mounted) return;
+    context.read<KelasProvider>().reset();
+    context.read<RiwayatProvider>().reset();
+    context.read<AbsensiProvider>().reset();
+
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final summary = context.watch<RiwayatProvider>().summary;
+
+    final student = auth.student;
+    final nama = student?.name ?? auth.user?.displayName ?? '-';
+    final nim = student?.nim ?? auth.user?.username ?? '-';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
@@ -19,15 +68,6 @@ class ProfilScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Color(0xFF1D2939)),
-            onPressed: () {
-              // Logika membuka pengaturan
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -35,85 +75,78 @@ class ProfilScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. AREA FOTO PROFIL & IDENTITAS
+              // 1. FOTO PROFIL & IDENTITAS
               Center(
                 child: Column(
                   children: [
                     const SizedBox(height: 10),
-                    Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 4),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 8,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
                           ),
-                          child: const CircleAvatar(
-                            radius: 65,
-                            backgroundImage: NetworkImage(
-                              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=260&q=80',
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 4,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF2575FC),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.edit_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 65,
+                        backgroundColor: const Color(0xFFE0EAFF),
+                        backgroundImage: student?.picture != null
+                            ? NetworkImage(student!.picture!)
+                            : null,
+                        child: student?.picture == null
+                            ? Text(
+                                student?.initials ?? '?',
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2575FC),
+                                ),
+                              )
+                            : null,
+                      ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Ahmad',
-                      style: TextStyle(
+                    Text(
+                      nama,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1D2939),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'NIM: 1234567890',
-                      style: TextStyle(
+                    Text(
+                      'NIM: $nim',
+                      style: const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF667085),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // Badges (Kelas & Jurusan)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        buildProfileBadge(
-                          'KELAS XII-A',
-                          const Color(0xFFE0EAFF),
-                          const Color(0xFF2575FC),
-                        ),
-                        const SizedBox(width: 8),
-                        buildProfileBadge(
-                          'IPA',
-                          const Color(0xFFF2F4F7),
-                          const Color(0xFF475467),
-                        ),
+                        if (student?.className != null)
+                          buildProfileBadge(
+                            'KELAS ${student!.className!.toUpperCase()}',
+                            const Color(0xFFE0EAFF),
+                            const Color(0xFF2575FC),
+                          ),
+                        if (student?.studyProgramName != null)
+                          buildProfileBadge(
+                            student!.studyProgramName!.toUpperCase(),
+                            const Color(0xFFF2F4F7),
+                            const Color(0xFF475467),
+                          ),
                       ],
                     ),
                   ],
@@ -121,7 +154,7 @@ class ProfilScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // 2. BAGIAN STATISTIK KEHADIRAN (HORIZONTAL CARDS)
+              // 2. STATISTIK KEHADIRAN
               const Text(
                 'Statistik Kehadiran',
                 style: TextStyle(
@@ -135,7 +168,7 @@ class ProfilScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     child: buildStatBox(
-                      '95%',
+                      summary?.persentaseLabel ?? '—',
                       'HADIR',
                       const Color(0xFFE6F4EA),
                       const Color(0xFF137333),
@@ -144,7 +177,7 @@ class ProfilScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: buildStatBox(
-                      '3',
+                      summary?.izin.toString() ?? '—',
                       'IZIN',
                       const Color(0xFFFEF7E0),
                       const Color(0xFFB45309),
@@ -153,7 +186,7 @@ class ProfilScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: buildStatBox(
-                      '1',
+                      summary?.alpa.toString() ?? '—',
                       'ALPA',
                       const Color(0xFFFCE8E6),
                       const Color(0xFFC5221F),
@@ -163,7 +196,7 @@ class ProfilScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // 3. MENU LIST OPTIONS
+              // 3. MENU
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -180,6 +213,15 @@ class ProfilScreen extends StatelessWidget {
                         Icons.chevron_right_rounded,
                         color: Color(0xFF98A2B3),
                       ),
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text('Pengaturan notifikasi segera hadir.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
                     ),
                     const Divider(
                       height: 1,
@@ -219,14 +261,7 @@ class ProfilScreen extends StatelessWidget {
                       title: 'Keluar Sesi',
                       titleColor: const Color(0xFFD92D20),
                       iconColor: const Color(0xFFD92D20),
-                      onTap: () {
-                        // Logika logout balik ke halaman login awal
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          '/login',
-                          (route) => false,
-                        );
-                      },
+                      onTap: () => _logout(context),
                     ),
                   ],
                 ),
@@ -238,7 +273,6 @@ class ProfilScreen extends StatelessWidget {
     );
   }
 
-  // Helper: Membuat Badge Profil Atas
   Widget buildProfileBadge(String label, Color bgColor, Color textColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -258,7 +292,6 @@ class ProfilScreen extends StatelessWidget {
     );
   }
 
-  // Helper: Membuat Box Statistik (Hadir, Izin, Alpa)
   Widget buildStatBox(
     String val,
     String label,
@@ -297,7 +330,6 @@ class ProfilScreen extends StatelessWidget {
     );
   }
 
-  // Helper: Membuat Baris Menu List Item
   Widget buildMenuTile({
     required IconData icon,
     required String title,
@@ -325,13 +357,12 @@ class ProfilScreen extends StatelessWidget {
           color: titleColor,
         ),
       ),
-      subtitle:
-          subtitle != null
-              ? Text(
-                subtitle,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
-              )
-              : null,
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
+            )
+          : null,
       trailing: trailing,
       onTap: onTap,
     );

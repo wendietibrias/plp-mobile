@@ -1,33 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+import '../../../auth/providers/auth_provider.dart';
+import '../models/attendance_model.dart';
 
 class SuccessAttendanceScreen extends StatelessWidget {
-  const SuccessAttendanceScreen({super.key});
+  final AttendanceModel? hasil;
+
+  const SuccessAttendanceScreen({super.key, this.hasil});
 
   @override
   Widget build(BuildContext context) {
+    final student = context.watch<AuthProvider>().student;
+    final tanggal = hasil?.scanDate ?? DateTime.now();
+    final tepatWaktu = hasil?.tepatWaktu ?? true;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. Bagian Atas: Peta & Icon Sukses Besar
             Stack(
               alignment: Alignment.bottomCenter,
               children: [
                 Container(
-                  height: 320,
+                  height: 280,
                   width: double.infinity,
                   decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: NetworkImage(
-                        'https://maps.googleapis.com/maps/api/staticmap?center=-6.200000,106.816666&zoom=15&size=600x400&key=',
-                      ), // Ganti peta statis Anda
-                      fit: BoxFit.cover,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFF2575FC), Color(0xFF6AA9FF)],
                     ),
                   ),
-                  child: Container(color: Colors.black.withOpacity(0.15)),
+                  child: const Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 60),
+                      child: Icon(
+                        Icons.qr_code_2_rounded,
+                        size: 96,
+                        color: Colors.white24,
+                      ),
+                    ),
+                  ),
                 ),
-                // Efek lingkaran sukses menumpuk di atas peta
                 Container(
                   margin: const EdgeInsets.only(bottom: 20),
                   padding: const EdgeInsets.all(12),
@@ -44,11 +61,11 @@ class SuccessAttendanceScreen extends StatelessWidget {
               ],
             ),
 
-            // 2. Konten Informasi Kehadiran
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
                 children: [
+                  const SizedBox(height: 8),
                   const Text(
                     'Presensi Berhasil!',
                     style: TextStyle(
@@ -58,13 +75,17 @@ class SuccessAttendanceScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Anda tercatat hadir tepat waktu',
-                    style: TextStyle(color: Color(0xFF667085), fontSize: 14),
+                  Text(
+                    tepatWaktu
+                        ? 'Anda tercatat hadir tepat waktu'
+                        : 'Anda tercatat hadir (terlambat)',
+                    style: const TextStyle(
+                      color: Color(0xFF667085),
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 25),
 
-                  // Info Jam & Tanggal Masuk
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -74,19 +95,20 @@ class SuccessAttendanceScreen extends StatelessWidget {
                       border: Border.all(color: const Color(0xFFE4E7EC)),
                     ),
                     child: Column(
-                      children: const [
+                      children: [
                         Text(
-                          '08:05 WIB',
-                          style: TextStyle(
+                          '${hasil?.scanTime ?? DateFormat('HH:mm').format(tanggal)} WIB',
+                          style: const TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF2575FC),
                           ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
-                          'Senin, 24 Mei 2026',
-                          style: TextStyle(
+                          DateFormat('EEEE, d MMMM y', 'id_ID')
+                              .format(tanggal),
+                          style: const TextStyle(
                             fontSize: 14,
                             color: Color(0xFF667085),
                             fontWeight: FontWeight.w500,
@@ -97,7 +119,6 @@ class SuccessAttendanceScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
 
-                  // Detail Informasi Mahasiswa & Kelas
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -107,25 +128,35 @@ class SuccessAttendanceScreen extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        buildDetailRow('Nama Siswa', 'Ahmad Ridwan'),
+                        buildDetailRow(
+                          'Nama Mahasiswa',
+                          student?.name ?? '-',
+                        ),
                         const Divider(height: 24),
-                        buildDetailRow('Mata Kuliah', 'Kalkulus II'),
+                        buildDetailRow(
+                          'Mata Kuliah',
+                          hasil?.courseName ?? '-',
+                        ),
                         const Divider(height: 24),
-                        buildDetailRow('Ruangan', 'Lab Komputer 302'),
+                        buildDetailRow('Ruangan', hasil?.room ?? '-'),
                         const Divider(height: 24),
-                        buildDetailRow('Status Radius', 'Di Dalam Area (5m)'),
+                        buildDetailRow(
+                          'Status',
+                          tepatWaktu ? 'Tepat Waktu' : 'Terlambat',
+                          valueColor: tepatWaktu
+                              ? const Color(0xFF137333)
+                              : const Color(0xFFD97706),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 35),
 
-                  // Button Kembali ke Beranda
                   SizedBox(
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
                       onPressed: () {
-                        // Kembali ke halaman dashboard utama
                         Navigator.pushNamedAndRemoveUntil(
                           context,
                           '/mahasiswa/dashboard',
@@ -159,7 +190,7 @@ class SuccessAttendanceScreen extends StatelessWidget {
     );
   }
 
-  Widget buildDetailRow(String label, String value) {
+  Widget buildDetailRow(String label, String value, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -171,12 +202,16 @@ class SuccessAttendanceScreen extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Color(0xFF1D2939),
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: valueColor ?? const Color(0xFF1D2939),
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../kelas/models/class_schedule_model.dart';
+
 class ClassCard extends StatelessWidget {
-  const ClassCard({super.key});
+  final ClassScheduleModel jadwal;
+  final VoidCallback onDetail;
+
+  const ClassCard({super.key, required this.jadwal, required this.onDetail});
 
   @override
   Widget build(BuildContext context) {
@@ -11,11 +16,11 @@ class ClassCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black12,
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -26,23 +31,31 @@ class ClassCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
-                    Icon(
+                  children: [
+                    const Icon(
                       Icons.location_on_rounded,
                       color: Color(0xFF667085),
                       size: 16,
                     ),
-                    SizedBox(width: 5),
-                    Text(
-                      'Ruang Laboratorium 302',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF667085)),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        jadwal.room,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF667085),
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Fisika Dasar',
-                  style: TextStyle(
+                Text(
+                  jadwal.course.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1D2939),
@@ -50,16 +63,17 @@ class ClassCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Row(
-                  children: const [
-                    Icon(
+                  children: [
+                    const Icon(
                       Icons.access_time_filled_rounded,
                       color: Color(0xFF667085),
                       size: 16,
                     ),
-                    SizedBox(width: 5),
+                    const SizedBox(width: 5),
                     Text(
-                      '13:00 - 14:40',
-                      style: TextStyle(
+                      '${jadwal.isToday ? '' : '${jadwal.hariIndonesia}, '}'
+                      '${jadwal.jamRingkas}',
+                      style: const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF1D2939),
                         fontWeight: FontWeight.w500,
@@ -69,7 +83,7 @@ class ClassCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: onDetail,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
@@ -93,17 +107,18 @@ class ClassCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 15),
+          // Ilustrasi pengganti gambar network (aset placeholder lama mati).
           Container(
-            width: 130,
-            height: 130,
+            width: 110,
+            height: 110,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              image: const DecorationImage(
-                image: NetworkImage(
-                  'https://via.placeholder.com/130x130.png?text=Aset+Lab',
-                ), // Ganti dengan aset lokal
-                fit: BoxFit.cover,
-              ),
+              color: const Color(0xFFE8F0FE),
+            ),
+            child: const Icon(
+              Icons.menu_book_rounded,
+              size: 48,
+              color: Color(0xFF2575FC),
             ),
           ),
         ],

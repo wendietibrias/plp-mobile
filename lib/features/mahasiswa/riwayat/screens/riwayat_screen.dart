@@ -1,10 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
-class RiwayatScreen extends StatelessWidget {
+import '../../absensi/models/attendance_model.dart';
+import '../providers/riwayat_provider.dart';
+
+class RiwayatScreen extends StatefulWidget {
   const RiwayatScreen({super.key});
 
   @override
+  State<RiwayatScreen> createState() => _RiwayatScreenState();
+}
+
+class _RiwayatScreenState extends State<RiwayatScreen> {
+  String _search = '';
+  int _filterIndex = 0;
+
+  static const List<String> _filters = [
+    'Semua',
+    'Bulan Ini',
+    'Tepat Waktu',
+    'Terlambat',
+  ];
+
+  @override
   Widget build(BuildContext context) {
+    final riwayat = context.watch<RiwayatProvider>();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
@@ -20,264 +42,312 @@ class RiwayatScreen extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. KARTU RINGKASAN TOTAL KEHADIRAN (ATAS)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(
-                    0xFFF0F5FF,
-                  ), // Biru sangat muda sesuai desain
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFD1E9FF)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Total Kehadiran',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF344054),
-                          ),
+      body: RefreshIndicator(
+        onRefresh: () =>
+            context.read<RiwayatProvider>().fetch(refresh: true),
+        child: _buildBody(riwayat),
+      ),
+    );
+  }
+
+  Widget _buildBody(RiwayatProvider riwayat) {
+    if (riwayat.state == RiwayatState.loading ||
+        riwayat.state == RiwayatState.initial) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF2575FC)),
+      );
+    }
+
+    if (riwayat.state == RiwayatState.error) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 120),
+          Icon(
+            riwayat.endpointMissing
+                ? Icons.construction_rounded
+                : Icons.error_outline_rounded,
+            size: 56,
+            color: const Color(0xFF98A2B3),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              riwayat.errorMessage ?? 'Gagal memuat riwayat.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF667085)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final summary = riwayat.summary;
+    final filtered = _applyFilter(riwayat.items);
+    final grouped = _groupByWeek(filtered);
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. KARTU RINGKASAN
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F5FF),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFD1E9FF)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Kehadiran',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF344054),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2575FC),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            '92%',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    LinearProgressIndicator(
-                      value: 0.92,
-                      backgroundColor: const Color(0xFFE4E7EC),
-                      color: const Color(0xFF2575FC),
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text(
-                          '24 / 26',
-                          style: TextStyle(
-                            fontSize: 20,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2575FC),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          summary?.persentaseLabel ?? '—',
+                          style: const TextStyle(
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF2575FC),
+                            color: Colors.white,
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  LinearProgressIndicator(
+                    value: summary?.persentase ?? 0,
+                    backgroundColor: const Color(0xFFE4E7EC),
+                    color: const Color(0xFF2575FC),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${summary?.hadir ?? 0} / ${summary?.totalSesi ?? 0}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2575FC),
+                        ),
+                      ),
+                      if (summary?.semesterLabel != null)
                         Text(
-                          'Semester Ganjil 2023/2024',
-                          style: TextStyle(
+                          summary!.semesterLabel!,
+                          style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF98A2B3),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Sesi pertemuan selesai',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF667085)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // 2. SEARCH BAR (Cari mata pelajaran...)
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF2F4F7),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Cari mata pelajaran...',
-                    hintStyle: TextStyle(
-                      color: Color(0xFF98A2B3),
-                      fontSize: 14,
-                    ),
-                    prefixIcon: Icon(Icons.search, color: Color(0xFF98A2B3)),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 14),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 3. FILTER BUTTONS (Semua, Bulan Ini, Semester 1)
-              Row(
-                children: [
-                  buildFilterChip('Semua', isSelected: true),
-                  const SizedBox(width: 8),
-                  buildFilterChip('Bulan Ini', hasDropdown: true),
-                  const SizedBox(width: 8),
-                  buildFilterChip('Semester 1', hasDropdown: true),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Sesi pertemuan selesai',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF667085)),
+                  ),
                 ],
               ),
-              const SizedBox(height: 24),
+            ),
+            const SizedBox(height: 20),
 
-              // 4. KELOMPOK MINGGU INI
-              const Text(
-                'MINGGU INI',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF98A2B3),
-                  letterSpacing: 0.8,
+            // 2. SEARCH BAR
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F4F7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                onChanged: (v) => setState(() => _search = v),
+                decoration: const InputDecoration(
+                  hintText: 'Cari mata kuliah...',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF98A2B3),
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(Icons.search, color: Color(0xFF98A2B3)),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
-              const SizedBox(height: 12),
-              buildRiwayatCard(
-                icon: Icons.check_circle_rounded,
-                iconBgColor: const Color(0xFFE6F4EA),
-                iconColor: const Color(0xFF137333),
-                title: 'Matematika Diskrit',
-                subtitle: 'Senin, 14 Okt • 08:00 - 10:30',
-                statusLabel: 'HADIR',
-                statusTime: '07:55 AM',
-                statusColor: const Color(0xFF137333),
-                statusBgColor: const Color(0xFFE6F4EA),
-              ),
-              buildRiwayatCard(
-                icon: Icons.access_time_filled_rounded,
-                iconBgColor: const Color(0xFFFEF3EB),
-                iconColor: const Color(0xFFD97706),
-                title: 'Pemrograman Web',
-                subtitle: 'Selasa, 15 Okt • 13:00 - 15:30',
-                statusLabel: 'TERLAMBAT',
-                statusTime: '13:15 PM',
-                statusColor: const Color(0xFFD97706),
-                statusBgColor: const Color(0xFFFEF3EB),
-              ),
-              const SizedBox(height: 16),
+            ),
+            const SizedBox(height: 16),
 
-              // 5. KELOMPOK MINGGU LALU
-              const Text(
-                'MINGGU LALU',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF98A2B3),
-                  letterSpacing: 0.8,
+            // 3. FILTER CHIPS (fungsional)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var i = 0; i < _filters.length; i++) ...[
+                    buildFilterChip(
+                      _filters[i],
+                      isSelected: _filterIndex == i,
+                      onTap: () => setState(() => _filterIndex = i),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 4. DAFTAR RIWAYAT (dikelompokkan per minggu)
+            if (filtered.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 60),
+                child: Center(
+                  child: Text(
+                    'Tidak ada riwayat yang cocok.',
+                    style:
+                        TextStyle(fontSize: 13, color: Color(0xFF667085)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              buildRiwayatCard(
-                icon: Icons.description_rounded,
-                iconBgColor: const Color(0xFFEFF4FF),
-                iconColor: const Color(0xFF2575FC),
-                title: 'Struktur Data',
-                subtitle: 'Kamis, 10 Okt • 09:00 - 11:30',
-                statusLabel: 'IZIN',
-                statusTime: 'Sakit',
-                statusColor: const Color(0xFF2575FC),
-                statusBgColor: const Color(0xFFEFF4FF),
-              ),
-              buildRiwayatCard(
-                icon: Icons.cancel_rounded,
-                iconBgColor: const Color(0xFFFEE4E2),
-                iconColor: const Color(0xFFD92D20),
-                title: 'Bahasa Inggris',
-                subtitle: 'Jumat, 11 Okt • 10:00 - 12:00',
-                statusLabel: 'ALPA',
-                statusTime: '-',
-                statusColor: const Color(0xFFD92D20),
-                statusBgColor: const Color(0xFFFEE4E2),
-              ),
-              buildRiwayatCard(
-                icon: Icons.check_circle_rounded,
-                iconBgColor: const Color(0xFFE6F4EA),
-                iconColor: const Color(0xFF137333),
-                title: 'Sistem Operasi',
-                subtitle: 'Rabu, 09 Okt • 08:00 - 10:30',
-                statusLabel: 'HADIR',
-                statusTime: '07:48 AM',
-                statusColor: const Color(0xFF137333),
-                statusBgColor: const Color(0xFFE6F4EA),
-              ),
-            ],
+              )
+            else
+              for (final group in grouped.entries) ...[
+                Text(
+                  group.key,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF98A2B3),
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final item in group.value) buildRiwayatCard(item),
+                const SizedBox(height: 16),
+              ],
+            const SizedBox(height: 60),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Logika filter & grouping ─────────────────────────────────────
+
+  List<AttendanceModel> _applyFilter(List<AttendanceModel> items) {
+    final now = DateTime.now();
+    return items.where((item) {
+      if (_search.isNotEmpty &&
+          !item.courseName.toLowerCase().contains(_search.toLowerCase())) {
+        return false;
+      }
+      switch (_filterIndex) {
+        case 1: // Bulan Ini
+          final d = item.scanDate;
+          return d != null && d.year == now.year && d.month == now.month;
+        case 2: // Tepat Waktu
+          return item.tepatWaktu;
+        case 3: // Terlambat
+          return !item.tepatWaktu;
+        default:
+          return true;
+      }
+    }).toList()
+      ..sort((a, b) {
+        final da = a.scanDate, db = b.scanDate;
+        if (da == null || db == null) return 0;
+        return db.compareTo(da); // terbaru dulu
+      });
+  }
+
+  Map<String, List<AttendanceModel>> _groupByWeek(
+    List<AttendanceModel> items,
+  ) {
+    final now = DateTime.now();
+    final startOfWeek = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    final startOfLastWeek = startOfWeek.subtract(const Duration(days: 7));
+
+    final grouped = <String, List<AttendanceModel>>{};
+    for (final item in items) {
+      final d = item.scanDate;
+      final String key;
+      if (d == null) {
+        key = 'LEBIH LAMA';
+      } else if (!d.isBefore(startOfWeek)) {
+        key = 'MINGGU INI';
+      } else if (!d.isBefore(startOfLastWeek)) {
+        key = 'MINGGU LALU';
+      } else {
+        key = 'LEBIH LAMA';
+      }
+      grouped.putIfAbsent(key, () => []).add(item);
+    }
+    return grouped;
+  }
+
+  // ── Helper widget (desain asli dipertahankan) ────────────────────
+
+  Widget buildFilterChip(
+    String label, {
+    bool isSelected = false,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color:
+              isSelected ? const Color(0xFF2575FC) : const Color(0xFFF2F4F7),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : const Color(0xFF344054),
           ),
         ),
       ),
     );
   }
 
-  // Helper Widget: Filter Chips
-  Widget buildFilterChip(
-    String label, {
-    bool isSelected = false,
-    bool hasDropdown = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF2575FC) : const Color(0xFFF2F4F7),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              color: isSelected ? Colors.white : const Color(0xFF344054),
-            ),
-          ),
-          if (hasDropdown) ...[
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 18,
-              color: isSelected ? Colors.white : const Color(0xFF344054),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+  Widget buildRiwayatCard(AttendanceModel item) {
+    final tepat = item.tepatWaktu;
+    final iconColor =
+        tepat ? const Color(0xFF137333) : const Color(0xFFD97706);
+    final iconBgColor =
+        tepat ? const Color(0xFFE6F4EA) : const Color(0xFFFEF3EB);
 
-  // Helper Widget: Card Item Riwayat Kehadiran
-  Widget buildRiwayatCard({
-    required IconData icon,
-    required Color iconBgColor,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required String statusLabel,
-    required String statusTime,
-    required Color statusColor,
-    required Color statusBgColor,
-  }) {
+    final tanggal = item.scanDate == null
+        ? '-'
+        : DateFormat('EEEE, d MMM', 'id_ID').format(item.scanDate!);
+    final subtitle = item.sessionTime == '-'
+        ? tanggal
+        : '$tanggal • ${item.sessionTime}';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -288,24 +358,29 @@ class RiwayatScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Icon Bulat Kiri
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: iconBgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: iconColor, size: 22),
+            child: Icon(
+              tepat
+                  ? Icons.check_circle_rounded
+                  : Icons.access_time_filled_rounded,
+              color: iconColor,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 14),
-
-          // Informasi Tengah (Nama Matkul & Waktu)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  item.courseName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -323,30 +398,32 @@ class RiwayatScreen extends StatelessWidget {
               ],
             ),
           ),
-
-          // Status Kanan (Badge Status & Jam Scan)
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusBgColor,
+                  color: iconBgColor,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  statusLabel,
+                  tepat ? 'HADIR' : 'TERLAMBAT',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: statusColor,
+                    color: iconColor,
                   ),
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                statusTime,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF98A2B3)),
+                item.scanTime,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF98A2B3),
+                ),
               ),
             ],
           ),

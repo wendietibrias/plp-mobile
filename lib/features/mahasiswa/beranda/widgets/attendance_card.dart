@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 
 class AttendanceCard extends StatelessWidget {
-  const AttendanceCard({super.key});
+  final double? percentage;
+  final String periodLabel;
+
+  const AttendanceCard({
+    super.key,
+    required this.percentage,
+    this.periodLabel = 'Semester ini',
+  });
 
   @override
   Widget build(BuildContext context) {
+    final label =
+        percentage == null ? '—' : '${(percentage! * 100).round()}%';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -27,8 +37,8 @@ class AttendanceCard extends StatelessWidget {
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
+                children: [
+                  const Text(
                     'TOTAL KEHADIRAN',
                     style: TextStyle(
                       fontSize: 14,
@@ -37,24 +47,27 @@ class AttendanceCard extends StatelessWidget {
                       letterSpacing: 1.1,
                     ),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '92%',
-                        style: TextStyle(
+                        label,
+                        style: const TextStyle(
                           fontSize: 40,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
                         ),
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Padding(
-                        padding: EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.only(bottom: 6),
                         child: Text(
-                          'Bulan ini',
-                          style: TextStyle(fontSize: 14, color: Colors.white70),
+                          periodLabel,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
                         ),
                       ),
                     ],
@@ -70,17 +83,16 @@ class AttendanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           LinearProgressIndicator(
-            value: 0.92,
+            value: percentage ?? 0,
             backgroundColor: Colors.white.withOpacity(0.2),
             color: Colors.white,
             minHeight: 10,
             borderRadius: BorderRadius.circular(10),
           ),
           const SizedBox(height: 10),
-          // Gradient Line at the bottom
           Container(
             height: 2,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [Colors.white24, Colors.white, Colors.white24],
                 stops: [0.0, 0.5, 1.0],
